@@ -10,4 +10,5 @@ public:
 
 protected:
   static int32_t sessionId_;
+  static int32_t sessionIdB_;
 };

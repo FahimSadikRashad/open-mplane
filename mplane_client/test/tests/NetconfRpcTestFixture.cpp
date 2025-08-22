@@ -1,9 +1,5 @@
 // (c) Facebook, Inc. and its affiliates. Confidential and proprietary.
-
 #include "NetconfRpcTestFixture.h"
-
-#include "Common.h"
-
 #include <gflags/gflags.h>
 
 DECLARE_string(netconfHost);
@@ -12,6 +8,7 @@ DECLARE_string(netconfUser);
 DECLARE_string(netconfPassword);
 
 int32_t NetconfRpcTest::sessionId_ = -1;
+int32_t NetconfRpcTest::sessionIdB_ = -1; 
 
 NetconfRpcTest::NetconfRpcTest() {
   // Only make a new connection once so that tests go more quickly
@@ -24,6 +21,17 @@ NetconfRpcTest::NetconfRpcTest() {
       sessionId_ = response->sessionid();
     } else {
       throw std::runtime_error("Could not open a session");
+    }
+  }
+  if (sessionIdB_ < 0) {
+    std::optional<mpclient::ConnectResponse> respB = 
+        client_.connect(FLAGS_netconfHost, FLAGS_netconfPort,
+                                 FLAGS_netconfUser, std::nullopt, std::nullopt,
+                                 FLAGS_netconfPassword);
+    if (respB.has_value() && respB->success()) {
+      sessionIdB_ = respB->sessionid();
+    } else {
+      throw std::runtime_error("Could not open session B");
     }
   }
 }
