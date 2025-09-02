@@ -195,6 +195,7 @@ list(APPEND MPLANE_SERVER_SOURCES
   yang-manager-server/yang-manager/src/YangParamUtils.cpp
   yang-manager-server/yang-manager/src/YangUtils.cpp
   yang-manager-server/yang-model-handlers/src/IetfInterfacesHandler.cpp
+  yang-manager-server/yang-model-handlers/src/OranrrhHandlerORanOperations.cpp
   yang-manager-server/yang-model-handlers/src/IetfNetconfAcmHandler.cpp
   yang-manager-server/yang-model-handlers/src/IetfNetconfServerHandler.cpp
   yang-manager-server/yang-model-handlers/src/OranModuleCapHandler.cpp

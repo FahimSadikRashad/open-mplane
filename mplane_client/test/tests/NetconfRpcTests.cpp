@@ -398,3 +398,160 @@ TEST_F(NetconfRpcTest, MP_UPLANE_001_CreateConfigureActivateTxCarrier_NoLock) {
     EXPECT_NE(getStateResp->message().find("<state>READY</state>"), std::string::npos)
         << "Expected carrier state READY, got:\n" << getStateResp->message();
 }
+
+
+TEST_F(NetconfRpcTest, MP_SEC_001_CreateUserWithLimitedPrivileges_NoLock) {
+    auto logResponse = [](const std::string& title,
+                          const std::optional<mpclient::NetconfRpcResponse>& resp) {
+        LOG(INFO) << "\n=== " << title << " ===";
+        if (!resp) {
+            LOG(INFO) << "No response received.";
+            return;
+        }
+        LOG(INFO) << "status(): " << resp->status();
+        LOG(INFO) << "returntype(): "
+                  << (resp->has_returntype() ? std::to_string(resp->returntype()) : "n/a");
+        LOG(INFO) << "message():\n"
+                  << (resp->has_message() ? resp->message() : "(no message)");
+    };
+
+    auto rpc = [&](int32_t sessionId, const std::string& xml, const std::string& title) {
+        auto resp = client_.netconfRpc(sessionId, xml, kNetconfRpcTimeoutSec);
+        logResponse(title, resp);
+        return resp;
+    };
+
+    // ---------- Step 1: Add new user (testuser_fmpm) ----------
+    const std::string createUserAndAssignGroup = R"(
+        <edit-config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+          <target><running/></target>
+          <config>
+            <!-- Create user in o-ran-usermgmt -->
+            <users xmlns="urn:o-ran:user-mgmt:1.0">
+              <user>
+                <name>testuser_fmpm</name>
+                <account-type>PASSWORD</account-type>
+                <password>Fmpm2025!Secure</password>
+                <enabled>true</enabled>
+              </user>
+            </users>
+
+            <!-- Add NACM rule-list entry for fm-pm group -->
+            <nacm xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-acm">
+              <rule-list>
+                <name>fm-pm</name>
+                <group>fm-pm</group>
+                <rule>
+                  <name>allow-fmpm</name>
+                  <module-name>*</module-name>
+                  <access-operations>*</access-operations>
+                  <action>permit</action>
+                </rule>
+              </rule-list>
+            </nacm>
+          </config>
+        </edit-config>
+    )";
+
+    auto createUserResp = rpc(sessionId_, createUserAndAssignGroup,
+                              "Create user testuser_fmpm and assign fm-pm group");
+    ASSERT_TRUE(createUserResp);
+    ASSERT_EQ(createUserResp->status(), mpclient::NetconfRpcResponse::SUCCESS);
+    ASSERT_EQ(createUserResp->returntype(), mpclient::NetconfRpcResponse::OK);
+
+    // ---------- Step 2: Verify new user and group assignment ----------
+    const std::string getVerifyUser =
+        R"(<get-config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+             <source><running/></source>
+             <filter>
+               <users xmlns="urn:o-ran:user-mgmt:1.0"/>
+               <nacm xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-acm"/>
+             </filter>
+           </get-config>)";
+    auto verifyResp = rpc(sessionId_, getVerifyUser, "Verify new user and NACM group");
+    ASSERT_TRUE(verifyResp);
+    ASSERT_EQ(verifyResp->status(), mpclient::NetconfRpcResponse::SUCCESS);
+    ASSERT_TRUE(verifyResp->has_message());
+
+    EXPECT_NE(verifyResp->message().find("<name>testuser_fmpm</name>"), std::string::npos)
+        << "Expected testuser_fmpm not found in users.";
+    EXPECT_NE(verifyResp->message().find("<group>fm-pm</group>"), std::string::npos)
+        << "Expected fm-pm group not found in NACM rule-list.";
+}
+
+// NOTE: This test currently not inside the test-suite.
+TEST_F(NetconfRpcTest, MP_UPLANE_003_CreateTxArrayCarrier_NoLock) {
+    auto logResponse = [](const std::string& title,
+                          const std::optional<mpclient::NetconfRpcResponse>& resp) {
+        LOG(INFO) << "\n=== " << title << " ===";
+        if (!resp) {
+            LOG(INFO) << "No response received.";
+            return;
+        }
+        LOG(INFO) << "status(): " << resp->status();
+        LOG(INFO) << "returntype(): "
+                  << (resp->has_returntype() ? std::to_string(resp->returntype()) : "n/a");
+        LOG(INFO) << "message():\n"
+                  << (resp->has_message() ? resp->message() : "(no message)");
+    };
+
+    auto rpc = [&](int32_t sessionId, const std::string& xml, const std::string& title) {
+        auto resp = client_.netconfRpc(sessionId, xml, kNetconfRpcTimeoutSec);
+        logResponse(title, resp);
+        return resp;
+    };
+
+    // ---------- Step 1: Create TxArrayCarrier0 ----------
+    const std::string createTxArrayCarrier = R"(
+        <edit-config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+          <target>
+            <running/>
+          </target>
+          <config>
+            <user-plane-configuration xmlns="urn:o-ran:uplane-conf:1.0">
+              <tx-array-carriers>
+                <tx-array-carrier>
+                  <name>TxArrayCarrier0</name>
+                  <center-of-channel-bandwidth>4150000000</center-of-channel-bandwidth>
+                  <absolute-frequency-center>653616</absolute-frequency-center>
+                  <channel-bandwidth>100000000</channel-bandwidth>
+                  <type>NR</type>
+                  <gain>0.0000</gain>
+                  <downlink-radio-frame-offset>0</downlink-radio-frame-offset>
+                  <downlink-sfn-offset>0</downlink-sfn-offset>
+                </tx-array-carrier>
+              </tx-array-carriers>
+            </user-plane-configuration>
+          </config>
+        </edit-config>
+    )";
+
+    auto createResp = rpc(sessionId_, createTxArrayCarrier, "Create TxArrayCarrier0");
+    ASSERT_TRUE(createResp);
+    ASSERT_EQ(createResp->status(), mpclient::NetconfRpcResponse::SUCCESS);
+    ASSERT_EQ(createResp->returntype(), mpclient::NetconfRpcResponse::OK);
+
+    // ---------- Step 2: Verify TxArrayCarrier0 ----------
+    const std::string verifyTxArrayCarrier =
+        R"(<get xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+             <filter>
+               <user-plane-configuration xmlns="urn:o-ran:uplane-conf:1.0">
+                 <tx-array-carriers>
+                   <tx-array-carrier>
+                     <name>TxArrayCarrier0</name>
+                   </tx-array-carrier>
+                 </tx-array-carriers>
+               </user-plane-configuration>
+             </filter>
+           </get>)";
+
+    auto verifyResp = rpc(sessionId_, verifyTxArrayCarrier, "Verify TxArrayCarrier0");
+    ASSERT_TRUE(verifyResp);
+    ASSERT_EQ(verifyResp->status(), mpclient::NetconfRpcResponse::SUCCESS);
+    ASSERT_TRUE(verifyResp->has_message());
+
+    EXPECT_NE(verifyResp->message().find("<name>TxArrayCarrier0</name>"), std::string::npos)
+        << "Expected TxArrayCarrier0 not found in configuration.";
+    EXPECT_NE(verifyResp->message().find("<type>NR</type>"), std::string::npos)
+        << "Expected type NR not found for TxArrayCarrier0.";
+}
