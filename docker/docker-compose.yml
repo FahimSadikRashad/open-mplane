@@ -1,0 +1,118 @@
+version: '3.8'
+
+# O-RAN M-Plane Server - Docker Compose Configuration
+# Complete simulation environment with isolated dependencies
+
+services:
+  # Main M-Plane Server
+  mplane-server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: runtime
+    image: mplane-server:latest
+    container_name: mplane-server
+    hostname: mplane-server
+
+    # Port mappings
+    ports:
+      - "830:830"     # NETCONF over SSH
+
+    # Persistent volumes
+    volumes:
+      # Sysrepo datastore (persists YANG modules and configuration)
+      - sysrepo-data:/etc/sysrepo
+
+      # Server logs
+      - server-logs:/var/log
+
+      # Optional: Custom configuration overrides
+      # - ./config:/opt/mplane/config:ro
+
+    # Environment variables
+    environment:
+      - LOG_LEVEL=info
+      - NETCONF_PORT=830
+      - HAL_PLATFORM=x86
+
+    # Network configuration
+    networks:
+      - mplane-net
+
+    # Capabilities needed for binding to privileged port 830
+    cap_add:
+      - NET_BIND_SERVICE
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "mplane-server-app"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Resource limits (adjust based on your system)
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+
+  # Development shell (optional - for debugging)
+  mplane-dev:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: runtime
+    image: mplane-server:latest
+    container_name: mplane-dev
+    hostname: mplane-dev
+
+    # Share volumes with main server
+    volumes:
+      - sysrepo-data:/etc/sysrepo
+      - server-logs:/var/log
+
+    # Development environment
+    environment:
+      - LOG_LEVEL=debug
+
+    networks:
+      - mplane-net
+
+    # Keep container running for shell access
+    command: shell
+    stdin_open: true
+    tty: true
+
+    # Only start manually when needed
+    profiles:
+      - debug
+
+# Networks
+networks:
+  mplane-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# Volumes
+volumes:
+  # Sysrepo datastore - persists YANG modules and configuration
+  sysrepo-data:
+    driver: local
+    labels:
+      description: "Sysrepo datastore for M-Plane server"
+
+  # Server logs - persists application logs
+  server-logs:
+    driver: local
+    labels:
+      description: "M-Plane server logs"
