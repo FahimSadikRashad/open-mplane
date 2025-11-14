@@ -68,11 +68,40 @@ if [ ! -x "${DEPS_INSTALL}/bin/sysrepoctl" ]; then
 fi
 echo -e "${GREEN}[Setup] ✓ sysrepoctl found${NC}"
 
+if [ ! -x "${DEPS_INSTALL}/bin/sysrepo-plugind" ]; then
+    echo -e "${RED}[Error] sysrepo-plugind not found at ${DEPS_INSTALL}/bin/sysrepo-plugind${NC}"
+    exit 1
+fi
+echo -e "${GREEN}[Setup] ✓ sysrepo-plugind found${NC}"
+
 if [ ! -d "${NETOPEER2_SCRIPTS}" ]; then
     echo -e "${RED}[Error] netopeer2 scripts not found at ${NETOPEER2_SCRIPTS}${NC}"
     exit 1
 fi
 echo -e "${GREEN}[Setup] ✓ netopeer2 scripts found${NC}"
+echo ""
+
+# Critical: Start sysrepo-plugind daemon (required for sysrepoctl to work in v1.4.x)
+echo -e "${YELLOW}[Setup] Starting sysrepo-plugind daemon...${NC}"
+echo -e "${BLUE}[Setup] (sysrepo v1.4.x requires daemon for sysrepoctl commands)${NC}"
+
+# Kill any existing daemon
+killall sysrepo-plugind 2>/dev/null || true
+rm -f /var/run/sysrepo-plugind.pid 2>/dev/null || true
+
+# Start daemon in background with verbose logging
+${DEPS_INSTALL}/bin/sysrepo-plugind -d -v 3 -p /var/run/sysrepo-plugind.pid
+
+# Wait for daemon to fully initialize
+sleep 3
+
+# Verify daemon is running
+if ! pgrep -f sysrepo-plugind > /dev/null; then
+    echo -e "${RED}[Setup] ✗ Failed to start sysrepo-plugind daemon${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}[Setup] ✓ sysrepo-plugind daemon started (PID: $(pgrep -f sysrepo-plugind))${NC}"
 echo ""
 
 # Phase 1: Install YANG modules (matching setup_mplane_server.sh:186-197)
@@ -133,6 +162,17 @@ MODULE_COUNT=$(${DEPS_INSTALL}/bin/sysrepoctl -l 2>/dev/null | grep -c "^[[:spac
 echo -e "${GREEN}[Setup] ✓ Installed YANG modules: ${MODULE_COUNT}${NC}"
 echo ""
 
+# Stop sysrepo-plugind daemon (will be restarted by main server)
+echo -e "${YELLOW}[Setup] Stopping sysrepo-plugind daemon...${NC}"
+if pgrep -f sysrepo-plugind > /dev/null; then
+    killall sysrepo-plugind 2>/dev/null || true
+    sleep 1
+    echo -e "${GREEN}[Setup] ✓ Daemon stopped${NC}"
+else
+    echo -e "${YELLOW}[Setup] ! Daemon already stopped${NC}"
+fi
+echo ""
+
 echo -e "${BLUE}========================================${NC}"
 echo -e "${GREEN}  Sysrepo initialization complete!${NC}"
 echo -e "${BLUE}========================================${NC}"
@@ -142,4 +182,5 @@ echo "  - YANG modules: ${MODULE_COUNT} installed"
 echo "  - SSH keys: generated"
 echo "  - NETCONF port: 830"
 echo "  - O-RAN users: configured"
+echo "  - Daemon: stopped (ready for server to start)"
 echo ""

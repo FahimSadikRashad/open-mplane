@@ -38,6 +38,9 @@ fi
 # Clean up stale resources (matching run_server_only.sh:43-57)
 echo -e "${YELLOW}[Docker] Cleaning up stale resources...${NC}"
 
+# Kill any stale sysrepo-plugind processes
+killall sysrepo-plugind 2>/dev/null || true
+
 # Remove stale HAL socket
 SOCK=/tmp/haltest.sock
 if [[ -S "$SOCK" ]]; then
@@ -53,6 +56,10 @@ rm -rf /dev/shm/sr_* /dev/shm/srsub_* 2>/dev/null || true
 echo -e "${YELLOW}[Docker] Setting up netopeer2 PID file${NC}"
 touch /var/run/netopeer2-server.pid 2>/dev/null || true
 chmod 666 /var/run/netopeer2-server.pid 2>/dev/null || true
+
+# Setup sysrepo-plugind PID file
+touch /var/run/sysrepo-plugind.pid 2>/dev/null || true
+chmod 666 /var/run/sysrepo-plugind.pid 2>/dev/null || true
 
 echo ""
 
