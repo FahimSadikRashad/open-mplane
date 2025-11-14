@@ -31,6 +31,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpam0g-dev \
     zlib1g-dev \
     curl \
+    libboost-all-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/mplane
@@ -131,7 +132,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl1.1 \
     libpcre2-8-0 \
-    libpcre3-0 \
     libsystemd0 \
     libcurl4 \
     libpam0g \
@@ -157,7 +157,7 @@ COPY --from=server-builder /opt/mplane/mplane_server/scripts /opt/mplane/scripts
 # Copy netopeer2 scripts (required for sysrepo setup)
 COPY --from=server-builder /opt/mplane/mplane_server/deps/netopeer2/build /opt/mplane/netopeer2-scripts/
 
-# Copy Docker runtime scripts
+# Copy Docker runtime scripts 
 COPY docker/scripts/docker-entrypoint.sh /opt/mplane/docker-scripts/
 COPY docker/scripts/init-sysrepo.sh /opt/mplane/docker-scripts/
 RUN chmod +x /opt/mplane/docker-scripts/*.sh
