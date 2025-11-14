@@ -1,0 +1,62 @@
+# .dockerignore for O-RAN M-Plane Server
+# Excludes unnecessary files from Docker build context
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docker
+docker/volumes/
+*.tar
+*.tar.gz
+
+# Build artifacts (will be built inside container)
+build/
+**/build/
+*.o
+*.so
+*.a
+*.d
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# Dependencies (will be downloaded inside container)
+mplane_server/deps/
+mplane_client/deps/
+
+# Documentation
+docs/*.md
+*.pdf
+README.md
+LICENSE
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
