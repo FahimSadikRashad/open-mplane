@@ -157,6 +157,10 @@ COPY --from=server-builder /opt/mplane/mplane_server/scripts /opt/mplane/scripts
 # Copy netopeer2 scripts (required for sysrepo setup)
 COPY --from=server-builder /opt/mplane/mplane_server/deps/netopeer2/build /opt/mplane/netopeer2-scripts/
 
+# Fix hardcoded paths in netopeer2 setup scripts to match runtime paths
+RUN find /opt/mplane/netopeer2-scripts -name '*.sh' -type f -exec sed -i \
+    's|/opt/mplane/mplane_server/deps/install|/opt/mplane/deps|g' {} +
+
 # Copy Docker runtime scripts 
 COPY docker/scripts/docker-entrypoint.sh /opt/mplane/docker-scripts/
 COPY docker/scripts/init-sysrepo.sh /opt/mplane/docker-scripts/
