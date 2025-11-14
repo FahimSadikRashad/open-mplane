@@ -172,9 +172,13 @@ ENV DEPS_INSTALL=/opt/mplane/deps
 ENV LD_LIBRARY_PATH=${DEPS_INSTALL}/lib64:${DEPS_INSTALL}/lib:/opt/mplane/lib
 ENV YANG_MODPATH=${DEPS_INSTALL}/share/yang/modules/libyang
 ENV PATH=${DEPS_INSTALL}/bin:${PATH}
+ENV SYSREPO_REPOSITORY_PATH=/etc/sysrepo
 
-# Create required directories
-RUN mkdir -p /etc/sysrepo \
+# Create required directories (including sysrepo v1.4.x repository structure)
+RUN mkdir -p /etc/sysrepo/yang \
+             /etc/sysrepo/data \
+             /etc/sysrepo/data/notif \
+             /etc/sysrepo/data/yang \
              /usr/share/mplane-server/modules \
              /var/log \
              /var/run \
@@ -185,7 +189,7 @@ RUN mkdir -p /etc/sysrepo \
     chmod 666 /var/log/app-state && \
     chown -R root:root /etc/sysrepo && \
     chown -R root:root /usr/share/mplane-server/modules && \
-    chmod -R 775 /etc/sysrepo && \
+    chmod -R 777 /etc/sysrepo && \
     chmod -R 775 /usr/share/mplane-server/modules
 
 # Create volumes for persistent data

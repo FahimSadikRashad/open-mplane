@@ -28,6 +28,37 @@ export PATH="${DEPS_INSTALL}/bin:${PATH}"
 export LD_LIBRARY_PATH="${DEPS_INSTALL}/lib64:${DEPS_INSTALL}/lib:${LD_LIBRARY_PATH:-}"
 export NP2_MODULE_DIR="${YANG_MODULES_DIR}"
 export NP2_MODULE_PERMS="600"
+export SYSREPO_REPOSITORY_PATH="${SYSREPO_REPO_DIR}"
+
+# Phase 0: Initialize sysrepo repository structure (critical for v1.4.x)
+echo -e "${YELLOW}[Setup] Phase 0: Initializing sysrepo repository structure...${NC}"
+
+# Create repository subdirectories (sysrepo v1.4.x expects these)
+mkdir -p "${SYSREPO_REPO_DIR}/yang" \
+         "${SYSREPO_REPO_DIR}/data" \
+         "${SYSREPO_REPO_DIR}/data/notif" \
+         "${SYSREPO_REPO_DIR}/data/yang" || {
+    echo -e "${RED}[Setup] ✗ Failed to create repository directories${NC}"
+    exit 1
+}
+
+# Set proper permissions (sysrepo needs write access)
+chmod -R 777 "${SYSREPO_REPO_DIR}" 2>/dev/null || {
+    echo -e "${YELLOW}[Setup] ! Warning: Could not set all permissions${NC}"
+}
+
+# Verify YANG modules source directory and copy to repository
+if [ -d "${ROOT_DIR}/yang-models" ]; then
+    echo -e "${YELLOW}[Setup] Copying YANG modules to repository...${NC}"
+    cp -r "${ROOT_DIR}/yang-models"/* "${YANG_MODULES_DIR}/" 2>/dev/null || true
+    chmod -R 644 "${YANG_MODULES_DIR}"/*.yang 2>/dev/null || true
+fi
+
+echo -e "${GREEN}[Setup] ✓ Repository structure initialized${NC}"
+echo -e "${GREEN}[Setup]   - ${SYSREPO_REPO_DIR}/yang${NC}"
+echo -e "${GREEN}[Setup]   - ${SYSREPO_REPO_DIR}/data${NC}"
+echo -e "${GREEN}[Setup]   - ${SYSREPO_REPO_DIR}/data/notif${NC}"
+echo ""
 
 # Verify tools exist
 echo -e "${YELLOW}[Setup] Verifying tools...${NC}"

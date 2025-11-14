@@ -19,6 +19,7 @@ DEPS_INSTALL=/opt/mplane/deps
 export LD_LIBRARY_PATH="${DEPS_INSTALL}/lib64:${DEPS_INSTALL}/lib:/opt/mplane/lib:${LD_LIBRARY_PATH:-}"
 export YANG_MODPATH="${DEPS_INSTALL}/share/yang/modules/libyang"
 export PATH="${DEPS_INSTALL}/bin:${PATH}"
+export SYSREPO_REPOSITORY_PATH="/etc/sysrepo"
 
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}  O-RAN M-Plane Server (Docker)${NC}"
