@@ -102,11 +102,27 @@ echo -e "${BLUE}[Setup]   SYSREPO_REPOSITORY_PATH=${SYSREPO_REPOSITORY_PATH}${NC
 killall sysrepo-plugind 2>/dev/null || true
 rm -f /var/run/sysrepo-plugind.pid 2>/dev/null || true
 
-# Start daemon in background with verbose logging (no -p option in v1.4.x)
-${DEPS_INSTALL}/bin/sysrepo-plugind -d -v 3
+# Start daemon in background with explicit environment (without -d to avoid fork issues)
+# Background it manually with & to preserve environment variables
+YANG_MODPATH="${DEPS_INSTALL}/share/yang/modules/libyang" \
+LD_LIBRARY_PATH="${DEPS_INSTALL}/lib64:${DEPS_INSTALL}/lib:${LD_LIBRARY_PATH:-}" \
+SYSREPO_REPOSITORY_PATH="${SYSREPO_REPO_DIR}" \
+${DEPS_INSTALL}/bin/sysrepo-plugind -v 3 > /tmp/sysrepo-plugind.log 2>&1 &
+
+# Save PID
+DAEMON_PID=$!
+echo $DAEMON_PID > /var/run/sysrepo-plugind.pid
 
 # Wait for daemon to fully initialize
-sleep 3
+sleep 5
+
+# Check if daemon startup had errors
+if [ -f /tmp/sysrepo-plugind.log ]; then
+    if grep -q "ERR" /tmp/sysrepo-plugind.log; then
+        echo -e "${RED}[Setup] ! Daemon started with errors:${NC}"
+        cat /tmp/sysrepo-plugind.log
+    fi
+fi
 
 # Verify daemon is running
 if ! pgrep -f sysrepo-plugind > /dev/null; then
