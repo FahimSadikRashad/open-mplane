@@ -149,10 +149,20 @@ COPY --from=server-builder /opt/mplane/build/hal-x86/libhalmplane.so /opt/mplane
 COPY --from=server-builder /opt/mplane/mplane_server/utils/test_shim/build/server-test-shim /opt/mplane/bin/
 COPY --from=server-builder /opt/mplane/build/server-sim/mplane-server-app /opt/mplane/bin/
 
+# Critical: Copy libyang built-in modules from builder stage
+# These are required for libyang to create a context
+COPY --from=server-builder /opt/mplane/mplane_server/deps/libyang/modules /opt/mplane/deps/share/yang/modules/libyang/
+
 # Copy YANG modules and configuration
 COPY --from=server-builder /opt/mplane/mplane_server/yang-models /opt/mplane/yang-models/
 COPY --from=server-builder /opt/mplane/mplane_server/yang-manager-server/yang-config /opt/mplane/yang-config/
 COPY --from=server-builder /opt/mplane/mplane_server/scripts /opt/mplane/scripts/
+
+# Copy O-RAN YANG models to /usr/share/mplane-server/modules (matching setup_mplane_server.sh)
+RUN mkdir -p /usr/share/mplane-server/modules && \
+    find /opt/mplane/yang-models -name "*.yang" -type f -exec cp {} /usr/share/mplane-server/modules/ \; && \
+    chmod 644 /usr/share/mplane-server/modules/*.yang && \
+    echo "Copied $(ls /usr/share/mplane-server/modules/*.yang 2>/dev/null | wc -l) YANG modules"
 
 # Copy netopeer2 scripts (required for sysrepo setup)
 COPY --from=server-builder /opt/mplane/mplane_server/deps/netopeer2/build /opt/mplane/netopeer2-scripts/
@@ -179,7 +189,6 @@ RUN mkdir -p /etc/sysrepo/yang \
              /etc/sysrepo/data \
              /etc/sysrepo/data/notif \
              /etc/sysrepo/data/yang \
-             /usr/share/mplane-server/modules \
              /var/log \
              /var/run \
              /dev/shm && \
@@ -188,9 +197,7 @@ RUN mkdir -p /etc/sysrepo/yang \
     chmod 666 /var/log/console.log && \
     chmod 666 /var/log/app-state && \
     chown -R root:root /etc/sysrepo && \
-    chown -R root:root /usr/share/mplane-server/modules && \
-    chmod -R 777 /etc/sysrepo && \
-    chmod -R 775 /usr/share/mplane-server/modules
+    chmod -R 777 /etc/sysrepo
 
 # Create volumes for persistent data
 VOLUME ["/etc/sysrepo", "/var/log", "/opt/mplane/config"]

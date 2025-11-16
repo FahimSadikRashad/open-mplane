@@ -47,11 +47,19 @@ chmod -R 777 "${SYSREPO_REPO_DIR}" 2>/dev/null || {
     echo -e "${YELLOW}[Setup] ! Warning: Could not set all permissions${NC}"
 }
 
-# Verify YANG modules source directory and copy to repository
-if [ -d "${ROOT_DIR}/yang-models" ]; then
-    echo -e "${YELLOW}[Setup] Copying YANG modules to repository...${NC}"
-    cp -r "${ROOT_DIR}/yang-models"/* "${YANG_MODULES_DIR}/" 2>/dev/null || true
-    chmod -R 644 "${YANG_MODULES_DIR}"/*.yang 2>/dev/null || true
+# Verify YANG modules are present (should be copied by Dockerfile)
+YANG_COUNT=$(find "${YANG_MODULES_DIR}" -name "*.yang" 2>/dev/null | wc -l)
+echo -e "${GREEN}[Setup] ✓ Found ${YANG_COUNT} O-RAN YANG modules in ${YANG_MODULES_DIR}${NC}"
+
+# Verify libyang built-in modules are present
+LIBYANG_MODS="${DEPS_INSTALL}/share/yang/modules/libyang"
+if [ -d "${LIBYANG_MODS}" ]; then
+    LIBYANG_COUNT=$(find "${LIBYANG_MODS}" -name "*.yang" 2>/dev/null | wc -l)
+    echo -e "${GREEN}[Setup] ✓ Found ${LIBYANG_COUNT} libyang built-in modules in ${LIBYANG_MODS}${NC}"
+else
+    echo -e "${RED}[Setup] ✗ libyang built-in modules NOT found at ${LIBYANG_MODS}${NC}"
+    echo -e "${RED}[Setup]   This will cause 'Failed to create libyang context' error${NC}"
+    exit 1
 fi
 
 echo -e "${GREEN}[Setup] ✓ Repository structure initialized${NC}"
@@ -89,8 +97,8 @@ echo -e "${BLUE}[Setup] (sysrepo v1.4.x requires daemon for sysrepoctl commands)
 killall sysrepo-plugind 2>/dev/null || true
 rm -f /var/run/sysrepo-plugind.pid 2>/dev/null || true
 
-# Start daemon in background with verbose logging
-${DEPS_INSTALL}/bin/sysrepo-plugind -d -v 3 -p /var/run/sysrepo-plugind.pid
+# Start daemon in background with verbose logging (no -p option in v1.4.x)
+${DEPS_INSTALL}/bin/sysrepo-plugind -d -v 3
 
 # Wait for daemon to fully initialize
 sleep 3
