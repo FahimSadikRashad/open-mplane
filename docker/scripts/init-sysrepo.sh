@@ -26,6 +26,7 @@ echo ""
 # Set environment (matching setup_mplane_server.sh:178-182)
 export PATH="${DEPS_INSTALL}/bin:${PATH}"
 export LD_LIBRARY_PATH="${DEPS_INSTALL}/lib64:${DEPS_INSTALL}/lib:${LD_LIBRARY_PATH:-}"
+export YANG_MODPATH="${DEPS_INSTALL}/share/yang/modules/libyang"
 export NP2_MODULE_DIR="${YANG_MODULES_DIR}"
 export NP2_MODULE_PERMS="600"
 export SYSREPO_REPOSITORY_PATH="${SYSREPO_REPO_DIR}"
@@ -92,6 +93,10 @@ echo ""
 # Critical: Start sysrepo-plugind daemon (required for sysrepoctl to work in v1.4.x)
 echo -e "${YELLOW}[Setup] Starting sysrepo-plugind daemon...${NC}"
 echo -e "${BLUE}[Setup] (sysrepo v1.4.x requires daemon for sysrepoctl commands)${NC}"
+echo -e "${BLUE}[Setup] Environment:${NC}"
+echo -e "${BLUE}[Setup]   YANG_MODPATH=${YANG_MODPATH}${NC}"
+echo -e "${BLUE}[Setup]   LD_LIBRARY_PATH=${LD_LIBRARY_PATH}${NC}"
+echo -e "${BLUE}[Setup]   SYSREPO_REPOSITORY_PATH=${SYSREPO_REPOSITORY_PATH}${NC}"
 
 # Kill any existing daemon
 killall sysrepo-plugind 2>/dev/null || true
