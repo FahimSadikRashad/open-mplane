@@ -56,15 +56,18 @@ RUN ls -la /opt/mplane/mplane_server/deps/install && \
     echo "[Stage 1] ✓ Dependencies built successfully!"
 
 # Critical: Ensure libyang built-in modules are available
-# libyang v1.x stores built-in modules in source tree under modules/
+# libyang v1.0.x stores built-in modules in source tree under models/ and src/extensions/
 # We need to copy them to the install location for runtime use
 RUN mkdir -p /opt/mplane/mplane_server/deps/install/share/yang/modules/libyang && \
-    if [ -d "/opt/mplane/mplane_server/deps/libyang/modules" ]; then \
-        cp /opt/mplane/mplane_server/deps/libyang/modules/*.yang \
-           /opt/mplane/mplane_server/deps/install/share/yang/modules/libyang/ 2>/dev/null || true; \
-        echo "[Stage 1] ✓ Copied $(ls /opt/mplane/mplane_server/deps/install/share/yang/modules/libyang/*.yang 2>/dev/null | wc -l) libyang built-in modules"; \
-    else \
-        echo "[Stage 1] ⚠ Warning: libyang source modules not found"; \
+    LIBYANG_SRC="/opt/mplane/mplane_server/deps/libyang" && \
+    find "$LIBYANG_SRC/models" -name "*.yang" -exec cp {} /opt/mplane/mplane_server/deps/install/share/yang/modules/libyang/ \; 2>/dev/null || true && \
+    find "$LIBYANG_SRC/src/extensions" -name "*.yang" -exec cp {} /opt/mplane/mplane_server/deps/install/share/yang/modules/libyang/ \; 2>/dev/null || true && \
+    YANG_COUNT=$(ls /opt/mplane/mplane_server/deps/install/share/yang/modules/libyang/*.yang 2>/dev/null | wc -l) && \
+    echo "[Stage 1] ✓ Copied $YANG_COUNT libyang built-in modules" && \
+    if [ "$YANG_COUNT" -eq 0 ]; then \
+        echo "[Stage 1] ⚠ WARNING: No libyang modules found! This will cause runtime errors."; \
+        echo "[Stage 1] ⚠ Expected location: $LIBYANG_SRC/models/*.yang"; \
+        ls -la "$LIBYANG_SRC/" 2>/dev/null || echo "[Stage 1] ⚠ libyang source directory not found"; \
     fi
 
 # =============================================================================
