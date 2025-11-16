@@ -55,6 +55,18 @@ RUN ls -la /opt/mplane/mplane_server/deps/install && \
     test -f /opt/mplane/mplane_server/deps/install/bin/netopeer2-server && \
     echo "[Stage 1] ✓ Dependencies built successfully!"
 
+# Critical: Ensure libyang built-in modules are available
+# libyang v1.x stores built-in modules in source tree under modules/
+# We need to copy them to the install location for runtime use
+RUN mkdir -p /opt/mplane/mplane_server/deps/install/share/yang/modules/libyang && \
+    if [ -d "/opt/mplane/mplane_server/deps/libyang/modules" ]; then \
+        cp /opt/mplane/mplane_server/deps/libyang/modules/*.yang \
+           /opt/mplane/mplane_server/deps/install/share/yang/modules/libyang/ 2>/dev/null || true; \
+        echo "[Stage 1] ✓ Copied $(ls /opt/mplane/mplane_server/deps/install/share/yang/modules/libyang/*.yang 2>/dev/null | wc -l) libyang built-in modules"; \
+    else \
+        echo "[Stage 1] ⚠ Warning: libyang source modules not found"; \
+    fi
+
 # =============================================================================
 # Stage 2: Build Simulation (halmplane, test-shim, mplane-server-app)
 # =============================================================================
@@ -148,10 +160,6 @@ COPY --from=server-builder /opt/mplane/mplane_server/deps/install /opt/mplane/de
 COPY --from=server-builder /opt/mplane/build/hal-x86/libhalmplane.so /opt/mplane/lib/
 COPY --from=server-builder /opt/mplane/mplane_server/utils/test_shim/build/server-test-shim /opt/mplane/bin/
 COPY --from=server-builder /opt/mplane/build/server-sim/mplane-server-app /opt/mplane/bin/
-
-# Critical: Copy libyang built-in modules from builder stage
-# These are required for libyang to create a context
-COPY --from=server-builder /opt/mplane/mplane_server/deps/libyang/modules /opt/mplane/deps/share/yang/modules/libyang/
 
 # Copy YANG modules and configuration
 COPY --from=server-builder /opt/mplane/mplane_server/yang-models /opt/mplane/yang-models/
