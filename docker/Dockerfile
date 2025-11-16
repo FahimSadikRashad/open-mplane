@@ -133,6 +133,18 @@ RUN echo "[Stage 2] Verifying binaries:" && \
     ls -la "${ROOT_DIR}/build/hal-x86/libhalmplane.so" && \
     echo "[Stage 2] ✓ All binaries verified!"
 
+# Verify libyang modules are still present (they should be inherited from deps-builder)
+RUN echo "[Stage 2] Verifying libyang modules:" && \
+    LIBYANG_MODS="${ROOT_DIR}/mplane_server/deps/install/share/yang/modules/libyang" && \
+    if [ -d "${LIBYANG_MODS}" ]; then \
+        YANG_COUNT=$(ls "${LIBYANG_MODS}"/*.yang 2>/dev/null | wc -l); \
+        echo "[Stage 2] ✓ Found ${YANG_COUNT} libyang modules in ${LIBYANG_MODS}"; \
+        ls -la "${LIBYANG_MODS}"; \
+    else \
+        echo "[Stage 2] ✗ ERROR: libyang modules directory NOT found at ${LIBYANG_MODS}"; \
+        exit 1; \
+    fi
+
 # =============================================================================
 # Stage 3: Runtime Container (minimal, production-ready)
 # =============================================================================
@@ -163,6 +175,20 @@ COPY --from=server-builder /opt/mplane/mplane_server/deps/install /opt/mplane/de
 COPY --from=server-builder /opt/mplane/build/hal-x86/libhalmplane.so /opt/mplane/lib/
 COPY --from=server-builder /opt/mplane/mplane_server/utils/test_shim/build/server-test-shim /opt/mplane/bin/
 COPY --from=server-builder /opt/mplane/build/server-sim/mplane-server-app /opt/mplane/bin/
+
+# Verify libyang modules were copied to runtime stage
+RUN echo "[Stage 3] Verifying libyang modules in runtime:" && \
+    LIBYANG_MODS="/opt/mplane/deps/share/yang/modules/libyang" && \
+    if [ -d "${LIBYANG_MODS}" ]; then \
+        YANG_COUNT=$(ls "${LIBYANG_MODS}"/*.yang 2>/dev/null | wc -l); \
+        echo "[Stage 3] ✓ Found ${YANG_COUNT} libyang modules"; \
+        ls -la "${LIBYANG_MODS}"; \
+    else \
+        echo "[Stage 3] ✗ CRITICAL: libyang modules NOT copied!"; \
+        echo "[Stage 3] ✗ Checking what was copied to /opt/mplane/deps/share/"; \
+        ls -laR /opt/mplane/deps/share/ || echo "share/ directory doesn't exist"; \
+        exit 1; \
+    fi
 
 # Copy YANG modules and configuration
 COPY --from=server-builder /opt/mplane/mplane_server/yang-models /opt/mplane/yang-models/
