@@ -6,13 +6,12 @@ This guide provides step-by-step instructions for building and running the O-RAN
 - [Prerequisites](#prerequisites)
 - [Getting the Source Code](#getting-the-source-code)
 - [Building Server Dependencies](#building-server-dependencies)
+- [Pre-Configuration Setup](#pre-configuration-setup)
 - [Building Client Dependencies (Optional)](#building-client-dependencies-optional)
 - [Building the Simulation](#building-the-simulation)
-- [Setting Up Log Directories](#setting-up-log-directories)
 - [One-Time Sysrepo Setup](#one-time-sysrepo-setup)
 - [Running the Server](#running-the-server)
 - [Stopping the Server](#stopping-the-server)
-- [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -155,6 +154,167 @@ git diff HEAD | grep -E "(extern char some_msg|np_get_nc_sess_user)"
 
 ---
 
+## Pre-Configuration Setup
+
+After building server dependencies, you need to set up the required directory structure, copy YANG modules, and configure the system before building the simulation.
+
+### Step 1: Set Up libyang Module Directory
+
+Create directory structure and copy libyang YANG modules:
+
+```bash
+cd ~/mplane_dev/open-mplane/mplane_server/deps
+
+# Create libyang modules directory
+mkdir -p install/share/yang/modules/libyang
+
+# Copy libyang YANG modules
+find libyang/models -name "*.yang" -type f -exec cp {} install/share/yang/modules/libyang/ \; 2>/dev/null
+find libyang/src/extensions -name "*.yang" -type f -exec cp {} install/share/yang/modules/libyang/ \; 2>/dev/null
+
+# Verify modules were copied
+echo "Copied $(ls install/share/yang/modules/libyang/*.yang 2>/dev/null | wc -l) libyang modules"
+```
+
+**Expected output:**
+```
+Copied 6 libyang modules
+```
+
+**Verification:**
+```bash
+ls -la install/share/yang/modules/libyang/
+```
+
+You should see modules like:
+- `ietf-datastores@2018-02-14.yang`
+- `ietf-inet-types@2013-07-15.yang`
+- `ietf-yang-library@2019-01-04.yang`
+- `ietf-yang-metadata@2016-08-05.yang`
+- `ietf-yang-types@2013-07-15.yang`
+- `yang@2017-02-20.yang`
+
+### Step 2: Create libyang System Symlinks
+
+Create symbolic links for libyang extensions and user types:
+
+```bash
+# Create libyang directory in system library path
+sudo mkdir -p /lib/libyang1
+
+# Create symlinks to extensions and user_types
+sudo ln -sf ~/mplane_dev/open-mplane/mplane_server/deps/install/lib/libyang1/extensions /lib/libyang1/extensions
+sudo ln -sf ~/mplane_dev/open-mplane/mplane_server/deps/install/lib/libyang1/user_types /lib/libyang1/user_types
+```
+
+**Verification:**
+```bash
+ls -la /lib/libyang1/
+```
+
+**Expected output:**
+```
+lrwxrwxrwx 1 root root extensions -> /home/.../mplane_server/deps/install/lib/libyang1/extensions
+lrwxrwxrwx 1 root root user_types -> /home/.../mplane_server/deps/install/lib/libyang1/user_types
+```
+
+### Step 3: Create Sysrepo Directories
+
+Set up the sysrepo repository structure:
+
+```bash
+# Create sysrepo directories
+sudo mkdir -p /etc/sysrepo/yang /etc/sysrepo/data /etc/sysrepo/data/notif /etc/sysrepo/data/yang
+
+# Set ownership and permissions
+sudo chown -R $USER:$USER /etc/sysrepo
+sudo chmod -R 777 /etc/sysrepo
+```
+
+**Note:** The 777 permissions are for development convenience. For production, use more restrictive permissions.
+
+### Step 4: Create M-Plane Modules Directory
+
+```bash
+# Create YANG modules directory for M-Plane server
+sudo mkdir -p /usr/share/mplane-server/modules
+
+# Set ownership and permissions
+sudo chown -R $USER:$USER /usr/share/mplane-server/modules
+sudo chmod -R 775 /usr/share/mplane-server/modules
+```
+
+### Step 5: Create Log Files
+
+```bash
+# Create log files
+sudo touch /var/log/console.log /var/log/app-state
+
+# Set permissions (make them world-writable for development)
+sudo chmod 666 /var/log/console.log /var/log/app-state
+```
+
+### Step 6: Copy O-RAN YANG Modules
+
+Copy all O-RAN YANG modules to the modules directory:
+
+```bash
+cd ~/mplane_dev/open-mplane
+
+# Copy all YANG modules
+find mplane_server/yang-models -name "*.yang" -type f -exec cp {} /usr/share/mplane-server/modules/ \;
+
+# Set proper permissions
+chmod 644 /usr/share/mplane-server/modules/*.yang
+
+# Verify modules were copied
+echo "Copied $(ls /usr/share/mplane-server/modules/*.yang 2>/dev/null | wc -l) O-RAN YANG modules"
+```
+
+**Expected output:**
+```
+Copied 52 O-RAN YANG modules
+```
+
+### Step 7: Verify Sysrepo Installation
+
+Set up environment variables and verify sysrepo is working:
+
+```bash
+# Set environment variables
+export INSTALL_DIR="$PWD/mplane_server/deps/install"
+export LD_LIBRARY_PATH="${INSTALL_DIR}/lib64:${INSTALL_DIR}/lib"
+export YANG_MODPATH="${INSTALL_DIR}/share/yang/modules/libyang"
+export PATH="${INSTALL_DIR}/bin:$PATH"
+export SYSREPO_REPOSITORY_PATH="/etc/sysrepo"
+
+# List installed sysrepo modules
+"${INSTALL_DIR}/bin/sysrepoctl" -l
+```
+
+**Expected output:**
+```
+Sysrepo repository: /etc/sysrepo
+
+Module Name                | Revision   | Flags | Owner       | Permissions | Submodules | Features
+---------------------------------------------------------------------------------------------------
+ietf-datastores            | 2018-02-14 | I     | fahim:fahim | 666         |            |
+ietf-inet-types            | 2013-07-15 | i     |             |             |            |
+ietf-netconf               | 2011-06-01 | I     | fahim:fahim | 666         |            |
+ietf-netconf-notifications | 2012-02-06 | I     | fahim:fahim | 666         |            |
+ietf-netconf-with-defaults | 2011-06-01 | I     | fahim:fahim | 666         |            |
+ietf-origin                | 2018-02-14 | I     | fahim:fahim | 666         |            |
+ietf-yang-library          | 2019-01-04 | I     | fahim:fahim | 666         |            |
+ietf-yang-metadata         | 2016-08-05 | i     |             |             |            |
+ietf-yang-types            | 2013-07-15 | i     |             |             |            |
+sysrepo-monitoring         | 2020-04-17 | I     | fahim:fahim | 600         |            |
+yang                       | 2017-02-20 | I     | fahim:fahim | 666         |            |
+```
+
+You should see the basic NETCONF and sysrepo modules installed.
+
+---
+
 ## Building Client Dependencies (Optional)
 
 If you plan to use the M-Plane client for testing, build the client dependencies before building the simulation.
@@ -236,41 +396,9 @@ This script will:
 
 ---
 
-## Setting Up Log Directories
-
-Create required log directories and set proper permissions:
-
-```bash
-# Create log files
-sudo touch /var/log/console.log
-sudo touch /var/log/app-state
-
-# Set permissions (make them world-writable for development)
-sudo chmod 666 /var/log/console.log
-sudo chmod 666 /var/log/app-state
-```
-
-**Note:** For production environments, use more restrictive permissions and proper user/group ownership.
-
----
-
 ## One-Time Sysrepo Setup
 
-### Create Sysrepo Directories
-
-Create the required sysrepo and YANG module directories:
-
-```bash
-# Create sysrepo repository directory
-sudo mkdir -p /etc/sysrepo
-sudo chown -R $USER:$USER /etc/sysrepo
-sudo chmod -R 775 /etc/sysrepo
-
-# Create YANG modules directory
-sudo mkdir -p /usr/share/mplane-server/modules
-sudo chown -R $USER:$USER /usr/share/mplane-server/modules
-sudo chmod -R 775 /usr/share/mplane-server/modules
-```
+After completing the pre-configuration setup, run the M-Plane server setup script to configure remaining YANG modules and NETCONF settings.
 
 ### Run Setup Script
 
@@ -412,138 +540,6 @@ sudo rm -rf /dev/shm/sr_* /dev/shm/srsub_*
 
 ---
 
-## Troubleshooting
-
-### Issue: "sysrepoctl not found"
-
-**Solution:** Dependencies not built yet. Build them first:
-```bash
-cd ~/mplane_dev/open-mplane/mplane_server/utils
-./get_deps_server.sh --no-fwdproxy
-./build_deps_server.sh
-```
-
-### Issue: "Permission denied" errors during setup
-
-**Solution:** The setup script requires sudo access for:
-- Creating `/etc/sysrepo` directory
-- Binding to privileged port 830
-- Managing system resources
-
-Make sure you can run `sudo` commands.
-
-### Issue: Server fails with "SR_ERR_INTERNAL" or "SR_ERR_SYS"
-
-**Cause:** Sysrepo not properly initialized.
-
-**Solution:** Re-run the setup script:
-```bash
-cd ~/mplane_dev/open-mplane
-./tools/setup_mplane_server.sh --setup-only --force
-```
-
-Verify modules are installed:
-```bash
-export LD_LIBRARY_PATH=~/mplane_dev/open-mplane/mplane_server/deps/install/lib64:~/mplane_dev/open-mplane/mplane_server/deps/install/lib
-~/mplane_dev/open-mplane/mplane_server/deps/install/bin/sysrepoctl -l
-```
-
-### Issue: "Address already in use" (port 830)
-
-**Cause:** Another NETCONF server is running or previous server didn't shut down properly.
-
-**Solution:**
-```bash
-# Find process using port 830
-sudo lsof -i :830
-
-# Kill the process
-sudo kill -9 <PID>
-
-# Clean up shared memory
-sudo rm -rf /dev/shm/sr_* /dev/shm/srsub_*
-
-# Try starting again
-./tools/run_server_only.sh
-```
-
-### Issue: Build fails with missing dependencies
-
-**Solution:** Install all system dependencies:
-```bash
-sudo apt update
-sudo apt install -y build-essential cmake git pkg-config \
-    libssl-dev libpcre2-dev zlib1g-dev libprotobuf-dev \
-    protobuf-compiler libboost-all-dev libtool autoconf automake
-```
-
-### Issue: Server starts but NETCONF port 830 not listening
-
-**Checks:**
-1. Verify server is running: `ps aux | grep mplane-server-app`
-2. Check port 830 is listening: `sudo netstat -tlnp | grep :830`
-3. Check firewall: `sudo ufw status` (disable if needed: `sudo ufw disable`)
-4. Review server logs for errors: `tail -f /var/log/console.log`
-5. Verify netopeer2-server is running: `ps aux | grep netopeer2-server`
-
-**Solution:** Server might need sudo to bind to privileged port 830. The `run_server_only.sh` script handles this automatically.
-
-### Issue: Logs show "Failed to initialize YANG module"
-
-**Solution:** YANG modules directory permissions might be wrong:
-```bash
-sudo chown -R $USER:$USER /usr/share/mplane-server/modules
-sudo chmod -R 775 /usr/share/mplane-server/modules
-```
-
-### Clean Rebuild
-
-If all else fails, perform a clean rebuild:
-
-```bash
-cd ~/mplane_dev/open-mplane
-
-# Clean build artifacts
-rm -rf build/
-rm -rf mplane_server/utils/test_shim/build/
-rm -rf mplane_client/build/
-
-# Clean sysrepo (requires re-setup)
-sudo rm -rf /etc/sysrepo
-sudo rm -rf /dev/shm/sr_* /dev/shm/srsub_*
-
-# Rebuild server dependencies
-cd mplane_server/utils
-./get_deps_server.sh --no-fwdproxy
-./build_deps_server.sh
-
-# Apply netopeer2 patches (REQUIRED)
-cd ~/mplane_dev/open-mplane/mplane_server/deps/netopeer2
-git apply ../../utils/netopeer2-fixes.patch
-
-# (Optional) Rebuild client dependencies
-cd ~/mplane_dev/open-mplane/mplane_client/utils/
-./get_deps.sh --no-fwdproxy --dir ../
-./build_deps.sh --no-netopeer2 --dir ../
-./build_mpclient.sh --parallel 2
-
-# Build simulation
-cd ~/mplane_dev/open-mplane
-./tools/sim/build_sim.sh
-
-# Re-setup directories and YANG modules
-sudo mkdir -p /etc/sysrepo
-sudo chown -R $USER:$USER /etc/sysrepo
-sudo mkdir -p /usr/share/mplane-server/modules
-sudo chown -R $USER:$USER /usr/share/mplane-server/modules
-./tools/setup_mplane_server.sh --setup-only --force
-
-# Start server
-./tools/run_server_only.sh
-```
-
----
-
 ## Quick Reference
 
 ### Build Commands
@@ -557,21 +553,46 @@ cd ~/mplane_dev/open-mplane/mplane_server/utils
 cd ~/mplane_dev/open-mplane/mplane_server/deps/netopeer2
 git apply ../../utils/netopeer2-fixes.patch
 
-# Step 3 (Optional): Build client dependencies
+# Step 3: Pre-configuration setup
+cd ~/mplane_dev/open-mplane/mplane_server/deps
+mkdir -p install/share/yang/modules/libyang
+find libyang/models -name "*.yang" -type f -exec cp {} install/share/yang/modules/libyang/ \; 2>/dev/null
+find libyang/src/extensions -name "*.yang" -type f -exec cp {} install/share/yang/modules/libyang/ \; 2>/dev/null
+
+sudo mkdir -p /lib/libyang1
+sudo ln -sf ~/mplane_dev/open-mplane/mplane_server/deps/install/lib/libyang1/extensions /lib/libyang1/extensions
+sudo ln -sf ~/mplane_dev/open-mplane/mplane_server/deps/install/lib/libyang1/user_types /lib/libyang1/user_types
+
+sudo mkdir -p /etc/sysrepo/yang /etc/sysrepo/data /etc/sysrepo/data/notif /etc/sysrepo/data/yang
+sudo chown -R $USER:$USER /etc/sysrepo
+sudo chmod -R 777 /etc/sysrepo
+
+sudo mkdir -p /usr/share/mplane-server/modules
+sudo chown -R $USER:$USER /usr/share/mplane-server/modules
+sudo chmod -R 775 /usr/share/mplane-server/modules
+
+sudo touch /var/log/console.log /var/log/app-state
+sudo chmod 666 /var/log/console.log /var/log/app-state
+
+cd ~/mplane_dev/open-mplane
+find mplane_server/yang-models -name "*.yang" -type f -exec cp {} /usr/share/mplane-server/modules/ \;
+chmod 644 /usr/share/mplane-server/modules/*.yang
+
+# Step 4 (Optional): Build client dependencies
 sudo apt install cmake build-essential libssl-dev zlib1g-dev libpcre3-dev
 cd ~/mplane_dev/open-mplane/mplane_client/utils/
 ./get_deps.sh --no-fwdproxy --dir ../
 ./build_deps.sh --no-netopeer2 --dir ../
 ./build_mpclient.sh --parallel 2
 
-# Step 4: Build the simulation
+# Step 5: Build the simulation
 cd ~/mplane_dev/open-mplane
 ./tools/sim/build_sim.sh
 ```
 
 ### Setup Commands
 ```bash
-# One-time setup: Create directories and install YANG modules
+# One-time setup: Install remaining YANG modules and configure NETCONF
 ./tools/setup_mplane_server.sh --setup-only --force
 ```
 
@@ -641,5 +662,5 @@ Once the simulator is running successfully:
 
 ---
 
-**Last Updated:** 2025-11-13
+**Last Updated:** 2025-11-19
 **Version:** Release1.0
