@@ -43,12 +43,16 @@ echo -e "${YELLOW}[Server] Library path: $LD_LIBRARY_PATH${NC}"
 SOCK=/tmp/haltest.sock
 if [[ -S "$SOCK" ]]; then
   echo -e "${YELLOW}[Server] Removing stale socket: $SOCK${NC}"
-  rm -f "$SOCK"
+  sudo rm -f "$SOCK"
 fi
 
 # Clean up sysrepo shared memory
 echo -e "${YELLOW}[Server] Cleaning sysrepo shared memory${NC}"
 sudo rm -rf /dev/shm/sr_* /dev/shm/srsub_* 2>/dev/null || true
+
+# Clean alarm IPC socket
+echo -e "${YELLOW}[Server] Cleaning alarm IPC socket${NC}"
+sudo rm -f /tmp/mplane_alarm_socket 2>/dev/null || true
 
 # Create netopeer2 PID file with writable permissions
 echo -e "${YELLOW}[Server] Setting up netopeer2 PID file${NC}"
@@ -56,21 +60,10 @@ sudo touch /var/run/netopeer2-server.pid 2>/dev/null || true
 sudo chown $USER:$USER /var/run/netopeer2-server.pid 2>/dev/null || true
 sudo chmod 666 /var/run/netopeer2-server.pid 2>/dev/null || true
 
-# Start the test shim (HAL simulator)
-echo -e "${GREEN}[Server] Starting HAL test shim...${NC}"
-"$ROOT_DIR/mplane_server/utils/test_shim/build/server-test-shim" &
-SHIM_PID=$!
-echo $SHIM_PID > /tmp/server-test-shim.pid
-echo -e "${GREEN}[Server] Shim PID: $SHIM_PID${NC}"
-
-# Wait for shim to initialize
-sleep 2
-
-# Start the server with sudo for privileged operations
+# Start the server with sudo for privileged operations (FIRST - to create shared memory as root)
 echo -e "${GREEN}[Server] Starting mplane-server-app with elevated privileges...${NC}"
 sudo -E LD_LIBRARY_PATH="$LD_LIBRARY_PATH" \
 YANG_MODPATH="$YANG_MODPATH" \
-SYSREPO_REPOSITORY_PATH="/etc/sysrepo" \
 "$ROOT_DIR/build/server-sim/mplane-server-app" \
     --cfg-data-path "$ROOT_DIR/mplane_server/yang-manager-server/yang-config" \
     --yang-mods-path /usr/share/mplane-server/modules \
@@ -79,6 +72,20 @@ SYSREPO_REPOSITORY_PATH="/etc/sysrepo" \
 SERVER_PID=$!
 echo $SERVER_PID > /tmp/mplane-server-app.pid
 echo -e "${GREEN}[Server] Server PID: $SERVER_PID${NC}"
+
+# Wait for server to initialize and create alarm socket
+sleep 3
+
+# Start the test shim (HAL simulator) with sudo for consistent permissions
+echo -e "${GREEN}[Server] Starting HAL test shim with elevated privileges...${NC}"
+sudo -E "$ROOT_DIR/mplane_server/utils/test_shim/build/server-test-shim" &
+SHIM_PID=$!
+echo $SHIM_PID > /tmp/server-test-shim.pid
+echo -e "${GREEN}[Server] Shim PID: $SHIM_PID${NC}"
+
+# Wait for shim to initialize and fix socket permissions
+sleep 1
+sudo chmod 666 /tmp/haltest.sock 2>/dev/null || true
 
 echo ""
 echo -e "${GREEN}========================================${NC}"
