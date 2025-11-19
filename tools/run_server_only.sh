@@ -70,6 +70,7 @@ sleep 2
 echo -e "${GREEN}[Server] Starting mplane-server-app with elevated privileges...${NC}"
 sudo -E LD_LIBRARY_PATH="$LD_LIBRARY_PATH" \
 YANG_MODPATH="$YANG_MODPATH" \
+SYSREPO_REPOSITORY_PATH="/etc/sysrepo" \
 "$ROOT_DIR/build/server-sim/mplane-server-app" \
     --cfg-data-path "$ROOT_DIR/mplane_server/yang-manager-server/yang-config" \
     --yang-mods-path /usr/share/mplane-server/modules \

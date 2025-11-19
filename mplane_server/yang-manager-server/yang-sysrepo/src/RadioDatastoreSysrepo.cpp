@@ -86,16 +86,18 @@ RadioDatastoreSysrepo::initialise(void) {
     // Connect to the sysrepo datastore
     mSrConnection = std::make_shared<sysrepo::Connection>();
 
-    if (!mSrConnection)
+    if (!mSrConnection) {
       result = YangResult_E::FAIL;
+    }
 
     setState(State_E::INITIALISED);
   } catch (const sysrepo::sysrepo_exception& exception) {
     result = exceptionHandler(exception, "initialise()");
   }
 
-  if (result != YangResult_E::OK)
+  if (result != YangResult_E::OK) {
     setState(State_E::SETUP_FAILURE);
+  }
 
   return result;
 }
@@ -109,8 +111,7 @@ RadioDatastoreSysrepo::activate(void) {
         sr_error_t::SR_ERR_INTERNAL, "activate() - no connection");
   } else {
     try {
-      // Reset connection to sysrepo datastore
-      resetConnection();
+      // Keep existing connection - no need to reset
 
       if (mSrConnection) {
         // Add datastore sessions for RUNNING and OPERATIONAL data
@@ -635,10 +636,12 @@ RadioDatastoreSysrepo::installModule(
 
   setState(State_E::CONFIGURING);
 
-  if (!isState(State_E::CONFIGURING))
+  if (!isState(State_E::CONFIGURING)) {
     return YangResult_E::FAIL;
-  if (!mSrConnection)
+  }
+  if (!mSrConnection) {
     return YangResult_E::FAIL;
+  }
 
   std::string modulePathName = path + "/" + filename;
 
@@ -647,7 +650,6 @@ RadioDatastoreSysrepo::installModule(
     pathp = path.c_str();
   }
 
-  // eventInfo("Installing: %s", modulePathName.c_str());
   try {
     // ToDo: Fix module installation to enable features correctly
     // Install module
@@ -656,12 +658,14 @@ RadioDatastoreSysrepo::installModule(
     // Add installed module to installed list
     addInstalledModule(name);
 
-    // Reset connection install module
-    result = resetConnection();
+    // No need to reset connection after each module installation
   } catch (const sysrepo::sysrepo_exception& exception) {
     result = exceptionHandler(exception, "installModule() - " + name, true);
-    if (result == YangResult_E::EXISTS)
+    if (result == YangResult_E::EXISTS) {
       result = YangResult_E::OK;
+      // Add to installed list even if it already exists
+      addInstalledModule(name);
+    }
   }
 
   return result;
@@ -699,19 +703,18 @@ RadioDatastoreSysrepo::installModuleData(
 
   setState(State_E::CONFIGURING);
 
-  if (!isState(State_E::CONFIGURING))
+  if (!isState(State_E::CONFIGURING)) {
     return YangResult_E::FAIL;
-  if (!mSrConnection)
+  }
+  if (!mSrConnection) {
     return YangResult_E::FAIL;
+  }
 
   try {
     if (data == "") {
-      // eventInfo("Installing module %s data from %s", name.c_str(),
-      // data_path.c_str());
       mSrConnection->install_module_data(
           name.c_str(), NULL, data_path.c_str(), LYD_FORMAT::LYD_XML);
     } else {
-      // eventInfo("Installing module %s data: %s", name.c_str(), data.c_str());
       mSrConnection->install_module_data(
           name.c_str(), data.c_str(), NULL, LYD_FORMAT::LYD_XML);
     }
@@ -873,14 +876,15 @@ RadioDatastoreSysrepo::resetConnection(void) {
   if (!mSrConnection)
     return YangResult_E::FAIL;
 
-  eventInfo("Datastore resetting sysrepo connection");
   try {
     // Force disconnection from the sysrepo datastore
     mSrConnection.reset();
 
     // Reconnect to the sysrepo datastore
-    if (!mSrConnection)
-      mSrConnection = std::make_shared<sysrepo::Connection>();
+    mSrConnection = std::make_shared<sysrepo::Connection>();
+    if (!mSrConnection) {
+      result = YangResult_E::FAIL;
+    }
   } catch (const sysrepo::sysrepo_exception& exception) {
     result = exceptionHandler(exception, "resetConnection()");
   }
